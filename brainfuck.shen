@@ -2,7 +2,7 @@
 
 (datatype program
   P : (vector (bfvm -> bfvm));
-  ===========
+  ============================
   P : program; )
 
 (datatype bfvm
