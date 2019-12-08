@@ -32,7 +32,7 @@
   { bfvm --> (bfvm -> bfvm) }
   [Pp Dp P T] -> (<-vector P Pp))
 
-(define forward-program
+(define incr-pp
   { bfvm --> bfvm }
   [Pp Dp P T] -> [(+ 1 Pp) Dp P T])
 
@@ -48,7 +48,7 @@
   { bfvm --> bfvm }
   Vm -> Vm where (is-off? Vm)
   Vm -> (let F (instruction Vm)
-             (forward-program (F Vm))))
+             (incr-pp (F Vm))))
 
 (define nop
   { bvfm --> bfvm }
