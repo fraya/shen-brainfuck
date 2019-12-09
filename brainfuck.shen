@@ -64,19 +64,19 @@
   { sym --> (bfvm -> bfvm) }
   + -> (bf-incr 1)
   - -> (bf-decr 1)
-  _ -> (function nop))
+  _ -> (nop))
 
-(define _list->vector
+(define list->vector
   { (list A) --> (vector A) }
-  L -> (_list->vector-help L (vector (length L)) 1))
+  L -> (list->vector-h L (vector (length L)) 1))
   
-(define _list->vector-help
+(define list->vector-h
   { (list A) --> (vector A) --> number --> (vector A) }
   [] V N -> V
-  [X | Xs] V N -> (_list->vector-help Xs (vector-> V N X) (+ N 1)))
+  [X | Xs] V N -> (list->vector-h Xs (vector-> V N X) (+ N 1)))
 
 (define program
   { (list symbol) --> program }
-  Syms -> (_list->vector (map sym->instruction Syms)))
+  Syms -> (list->vector (map sym->instruction Syms)))
 
 
