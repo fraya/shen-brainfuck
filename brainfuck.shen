@@ -36,9 +36,9 @@
   { bfvm --> bfvm }
   [Pp Dp P T] -> [(+ 1 Pp) Dp P T])
 
-(define forward-tape
-  { bfvm --> bfvm }
-  [Pp Dp P T] -> [Pp (+ 1 Dp) P T])
+(define incr-dp
+  { bfvm --> number --> bfvm }
+  [Pp Dp P T] N -> [Pp (+ Dp N) P T])
   
 (define is-off?
   { bfvm --> boolean }
