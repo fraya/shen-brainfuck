@@ -55,8 +55,8 @@
   Vm -> Vm)
   
 (define incr
-  { bfvm --> bfvm }
-  [Pp Dp P T] -> [Pp Dp P (_tape-change T Dp 1)])
+  { number --> bfvm  --> bfvm }
+  N [Pp Dp P T] -> [Pp Dp P (_tape-change T Dp N)])
 
 (define decr
   { bfvm --> bfvm }
@@ -64,7 +64,7 @@
 
 (define sym->instruction
   { sym --> (bfvm -> bfvm) }
-  + -> (function incr)
+  + -> (incr 1)
   - -> (function decr)
   _ -> (function nop))
 
