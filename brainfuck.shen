@@ -29,9 +29,9 @@
   A [Pp Dp P T] -> (error "Address overflow") where (> A (limit P))
   A [Pp Dp P T] -> [A Dp P T])
   
-(define instruction
-  { bfvm --> (bfvm -> bfvm) }
-  [Pp Dp P T] -> (<-vector P Pp))
+(define bf-exec
+  { bfvm --> bfvm }
+  [Pp Dp P T] -> ((<-vector P Pp) [Pp Dp P T]))
 
 (define incr-pp
   { number --> bfvm --> bfvm }
@@ -47,8 +47,8 @@
   
 (define bf-run
   { bfvm --> bfvm }
-  Bfvm -> ((instruction Bfvm) Bfvm) where (is-off? Bfvm)
-  Bfvm -> (bf-run (incr-pp 1 ((instruction Bfvm) Bfvm))))
+  Bfvm -> (bf-exec Bfvm) where (is-off? Bfvm)
+  Bfvm -> (bf-run (incr-pp 1 (bf-exec Bfvm))))
 
 (define nop
   { bvfm --> bfvm }
