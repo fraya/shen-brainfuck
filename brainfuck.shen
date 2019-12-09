@@ -19,11 +19,6 @@
   V L L -> V
   V N L -> (tape-make-h (vector-> V N 0) (+ N 1) L))
 
-(define _tape-change
-  { tape --> number --> number --> tape }
-  T Dp A -> (let V (+ (<-vector T Dp) A)
-                   (vector-> T Dp V)))
-
 (define bf-make
   { program --> tape --> bfvm }
   P T -> [1 1 P T])
