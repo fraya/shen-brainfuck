@@ -41,13 +41,13 @@
   { bfvm --> number --> bfvm }
   [Pp Dp P T] N -> [Pp (+ Dp N) P T])
   
-(define is-off?
+(define bf-is-off?
   { bfvm --> boolean }
   [Pp Dp P T] -> (= Pp (limit P)))
   
 (define bf-run
   { bfvm --> bfvm }
-  Bfvm -> (bf-exec Bfvm) where (is-off? Bfvm)
+  Bfvm -> (bf-exec Bfvm) where (bf-is-off? Bfvm)
   Bfvm -> (bf-run (incr-pp 1 (bf-exec Bfvm))))
 
 (define nop
