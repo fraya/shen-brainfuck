@@ -33,8 +33,8 @@
   [Pp Dp P T] -> (<-vector P Pp))
 
 (define incr-pp
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> [(+ Pp N) Dp P T])
+  { number --> bfvm --> bfvm }
+  N [Pp Dp P T] -> [(+ Pp N) Dp P T])
 
 (define incr-dp
   { bfvm --> number --> bfvm }
@@ -48,7 +48,7 @@
   { bfvm --> bfvm }
   Vm -> Vm where (is-off? Vm)
   Vm -> (let F (instruction Vm)
-               (bf-run (incr-pp (F Vm) 1))))
+               (bf-run (incr-pp 1 (F Vm)))))
 
 (define nop
   { bvfm --> bfvm }
