@@ -24,7 +24,7 @@
   T Dp A -> (let V (+ (<-vector T Dp) A)
                    (vector-> T Dp V)))
 
-(define bfvm-make
+(define bf-make
   { program --> tape --> bfvm }
   P T -> [1 1 P T])
 
