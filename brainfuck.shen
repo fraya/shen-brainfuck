@@ -60,14 +60,14 @@
                          T2 (vector-> T1 Dp (+ V N))
                             [Pp Dp P T2]))
 
-(define decr
+(define bf-decr
   { bfvm --> bfvm }
   [Pp Dp P T] -> [Pp Dp P (_tape-change T Dp -1)])
 
 (define sym->instruction
   { sym --> (bfvm -> bfvm) }
   + -> (bf-incr 1)
-  - -> (function decr)
+  - -> (bf-decr)
   _ -> (function nop))
 
 (define _list->vector
