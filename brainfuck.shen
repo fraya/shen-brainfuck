@@ -37,10 +37,6 @@
   { bfvm --> bfvm }
   [Pp Dp P T] -> (bf-jump (+ Pp 1) [Pp Dp P T]))
 
-(define incr-dp
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> [Pp (+ Dp N) P T])
-  
 (define bf-is-off?
   { bfvm --> boolean }
   [Pp Dp P T] -> (= Pp (limit P)))
