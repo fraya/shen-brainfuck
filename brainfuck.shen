@@ -33,9 +33,9 @@
   { bfvm --> bfvm }
   [Pp Dp P T] -> ((<-vector P Pp) [Pp Dp P T]))
 
-(define incr-pp
-  { number --> bfvm --> bfvm }
-  N [Pp Dp P T] -> (bf-jump (+ Pp 1) [Pp Dp P T]))
+(define bf-forward
+  { bfvm --> bfvm }
+  [Pp Dp P T] -> (bf-jump (+ Pp 1) [Pp Dp P T]))
 
 (define incr-dp
   { bfvm --> number --> bfvm }
@@ -48,7 +48,7 @@
 (define bf-run
   { bfvm --> bfvm }
   Bfvm -> (bf-exec Bfvm) where (bf-is-off? Bfvm)
-  Bfvm -> (bf-run (incr-pp 1 (bf-exec Bfvm))))
+  Bfvm -> (bf-run (bf-forward (bf-exec Bfvm))))
 
 (define nop
   { bvfm --> bfvm }
