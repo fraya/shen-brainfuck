@@ -48,7 +48,7 @@
   { bfvm --> bfvm }
   Vm -> Vm where (is-off? Vm)
   Vm -> (let F (instruction Vm)
-             (incr-pp (F Vm) 1)))
+               (bf-run (incr-pp (F Vm) 1))))
 
 (define nop
   { bvfm --> bfvm }
