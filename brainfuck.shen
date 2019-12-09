@@ -23,13 +23,19 @@
   { program --> tape --> bfvm }
   P T -> [1 1 P T])
 
+(define bf-jump
+  { number --> bfvm --> bfvm }
+  A [Pp Dp P T] -> (error "Address underflow") where (< A 1)
+  A [Pp Dp P T] -> (error "Address overflow") where (> A (limit P))
+  A [Pp Dp P T] -> [A Dp P T])
+  
 (define instruction
   { bfvm --> (bfvm -> bfvm) }
   [Pp Dp P T] -> (<-vector P Pp))
 
 (define incr-pp
   { number --> bfvm --> bfvm }
-  N [Pp Dp P T] -> [(+ Pp N) Dp P T])
+  N [Pp Dp P T] -> (bf-jump (+ Pp 1) [Pp Dp P T]))
 
 (define incr-dp
   { bfvm --> number --> bfvm }
@@ -37,13 +43,12 @@
   
 (define is-off?
   { bfvm --> boolean }
-  [Pp Dp P T] -> (> Pp (limit P)))
+  [Pp Dp P T] -> (= Pp (limit P)))
   
 (define bf-run
   { bfvm --> bfvm }
-  Vm -> Vm where (is-off? Vm)
-  Vm -> (let F (instruction Vm)
-               (bf-run (incr-pp 1 (F Vm)))))
+  Bfvm -> ((instruction Bfvm) Bfvm) where (is-off? Bfvm)
+  Bfvm -> (bf-run (incr-pp 1 ((instruction Bfvm) Bfvm))))
 
 (define nop
   { bvfm --> bfvm }
