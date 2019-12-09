@@ -12,12 +12,12 @@
 
 (define tape-make
   { number --> tape }
-  N -> (_tape-init (vector N) 1 N))
+  N -> (tape-make-h (vector N) 1 N))
 
-(define _tape-init
+(define tape-make-h
   { tape --> number --> number --> tape }
   V L L -> V
-  V N L -> (_tape-init (vector-> V N 0) (+ N 1) L))
+  V N L -> (tape-make-h (vector-> V N 0) (+ N 1) L))
 
 (define _tape-change
   { tape --> number --> number --> tape }
