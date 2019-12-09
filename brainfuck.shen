@@ -61,13 +61,13 @@
                             [Pp Dp P T2]))
 
 (define bf-decr
-  { bfvm --> bfvm }
-  [Pp Dp P T] -> [Pp Dp P (_tape-change T Dp -1)])
+  { number --> bfvm --> bfvm }
+  N Bfvm -> (bf-incr (- 0 N) Bfvm))
 
 (define sym->instruction
   { sym --> (bfvm -> bfvm) }
   + -> (bf-incr 1)
-  - -> (bf-decr)
+  - -> (bf-decr 1)
   _ -> (function nop))
 
 (define _list->vector
