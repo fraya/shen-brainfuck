@@ -56,7 +56,9 @@
   
 (define bf-incr
   { number --> bfvm  --> bfvm }
-  N [Pp Dp P T] -> [Pp Dp P (_tape-change T Dp N)])
+  N [Pp Dp P T1] -> (let V  (<-vector T1 Dp)
+                         T2 (vector-> T1 Dp (+ V N))
+                            [Pp Dp P T2]))
 
 (define decr
   { bfvm --> bfvm }
