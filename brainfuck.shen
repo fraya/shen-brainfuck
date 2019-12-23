@@ -1,13 +1,14 @@
 (synonyms bfcode (symbol * number)
+          bfcodes (list bfcode)
+	  optimization (bfcodes --> bfcodes)
           program (vector bfcode)
 	  tape (vector number))
 
-(defstruct bfvm
-  (pp number)
-  (dp number)
-  (program program)
-  (tape tape))
-
+(datatype bfvm
+  Pp: number; Dp: number; P: program; T: tape;
+  ============
+  [Pp Dp P T]: bfvm;)
+  
 (define make-tape
   { number --> tape }
   Size -> (make-tape' (vector Size) 1 Size))
@@ -19,19 +20,15 @@
 
 (define make-bfvm
   { program --> bfvm }
-  P -> (mk-bfvm 1 1 P (make-tape 100)))
-  
-(define tape-size
-  { bfvm --> number }
-  B -> (limit (bfvm-tape B)))
+  P -> [1 1 P (make-tape 100)])
   
 (define datum
   { bfvm --> number }
-  B -> (<-vector (bfvm-tape B) (bfvm-dp B)))
+  [_ Dp _ T] -> (<-vector T Dp))
   
 (define datum->
   { bfvm --> number --> bfvm }
-  B N -> (do (vector-> (bfvm-tape B) (bfvm-dp B) N) B))
+  [Pp Dp P T] N -> (do (vector-> T Dp N) [Pp Dp P T]))
 
 (define datum+
   { bfvm --> number --> bfvm }
@@ -43,27 +40,23 @@
 
 (define dp+
   { bfvm --> number --> bfvm }
-  B N -> (error "Tape overflow") where (> (+ N (bfvm-dp B)) (tape-size B))
-  B N -> (do (bfvm-dp-> B (+ N (bfvm-dp B))) B))
+  [Pp Dp P T] N -> (error "Tape overflow") where (> (+ N Dp) (limit T))
+  [Pp Dp P T] N -> [Pp (+ N Dp) P T])
 
 (define dp-
   { bfvm --> number --> bfvm }
-  B N -> (error "Tape underflow") where (< (- (bfvm-dp B) N) 1)
-  B N -> (dp+ B (- 0 N)))
-
-(define program-size
-  { bfvm --> number }
-  B -> (limit (bfvm-program B)))
+  [Pp Dp P T] N -> (error "Tape underflow") where (< (- Dp N) 1)
+  [Pp Dp P T] N -> [Pp (- Dp N) P T])
   
 (define pp+
   { bfvm --> number --> bfvm }
-  B N -> (error "address overflow") where (> (+ N (bfvm-pp B)) (program-size B))
-  B N -> (bfvm-pp-> B (+ (bfvm-pp B) N)))
+  [Pp Dp P T] N -> (error "address overflow") where (> (+ N Pp) (limit P))
+  [Pp Dp P T] N -> [(+ Pp N) Dp P T])
   
 (define pp-
   { bfvm --> number --> bfvm }
-  B N -> (error "address underflow") where (< (- (bfvm-pp B) N) 1)
-  B N -> (pp+ B (- 0 N)))
+  [Pp Dp P T] N -> (error "address underflow") where (< (- Pp N) 1)
+  [Pp Dp P T] N -> [(- Pp N) Dp P T])
 
 (define pp++
   { bfvm --> bfvm }
@@ -75,11 +68,11 @@
   
 (define bfcode
   { bfvm --> bfcode }
-  B -> (<-vector (bfvm-program B) (bfvm-pp B)))
+  [Pp Dp P T] -> (<-vector P Pp))
 
 (define off?
   { bfvm --> boolean }
-  B -> (= (bfvm-pp B) (program-size B)))
+  [Pp Dp P T] -> (= Pp (limit P)))
   
 (define bf-run
   { bfvm --> symbol }
@@ -108,9 +101,9 @@
 
 (define jf
   { bfvm --> number --> bfvm }
-  B _ -> B where (= 0 (datum B))
-  B 0 -> (jf' 1 (pp++ B))
-  B A -> (bfvm-pp-> B A))
+  B _           -> B where (= 0 (datum B))
+  B 0           -> (jf' 1 (pp++ B))
+  [Pp Dp P T] A -> [A Dp P T])
 
 (define jf'
   { number --> bfvm --> bfvm }
@@ -122,17 +115,17 @@
 
 (define jb
   { bfvm --> number --> bfvm }
-  B _ -> B where (not (= 0 (datum B)))
-  B 0 -> (jb' 1 (pp++ B))
-  B A -> (bfvm-pp-> B A))
+  B _           -> B where (not (= 0 (datum B)))
+  B 0           -> (jb' 1 (pp++ B))
+  [Pp Dp P T] A -> [A Dp P T])
 
 (define jb'
   { number --> bfvm --> bfvm }
-  0 B -> B
-  _ B -> (error "Mismatched jump backward") where (= (bfvm-pp B) 1)
-  L B -> (jb' (- L 1) (pp-- B)) where (= (fst (bfcode B)) jf)
-  L B -> (jb' (+ L 1) (pp-- B)) where (= (fst (bfcode B)) jb)
-  L B -> (jb' L (pp-- B)))
+  0 B           -> B
+  _ [Pp Dp P T] -> (error "Mismatched jump backward") where (= Pp 1)
+  L B           -> (jb' (- L 1) (pp-- B)) where (= (fst (bfcode B)) jf)
+  L B           -> (jb' (+ L 1) (pp-- B)) where (= (fst (bfcode B)) jb)
+  L B           -> (jb' L (pp-- B)))
   
 (define byte->bfcode
   { number --> bfcode }
@@ -165,11 +158,20 @@
   [X | Xs] Result F -> (filter' Xs [X | Result] F) where (F X)
   [X | Xs] Result F -> (filter' Xs Result F))
 
-(define exclude-nop
-  { (list bfcode) --> (list bfcode) }
-  L -> (filter L (/. X (not (= (fst X) nop)))))
+(define file->bfcode
+  { string --> bfcodes }
+  File -> (map byte->bfcode (read-file-as-bytelist File)))
   
 (define program
-  { string --> (vector bfcode) }
-  File -> (list->vector (map byte->bfcode (read-file-as-bytelist File))))
+  { string --> (list optimization) --> (vector bfcode) }
+  File Opts -> (list->vector (optimize Opts (file->bfcode File))))
+
+(define optimize
+  { (list optimization) --> bfcodes --> bfcodes }
+  []       C -> C
+  [O | Os] C -> (optimize Os (O C)))
+
+(define exclude-nop
+  { bfcodes --> bfcodes }
+  L -> (filter L (/. X (not (= (fst X) nop)))))
 
