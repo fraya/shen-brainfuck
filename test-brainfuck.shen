@@ -1,7 +1,6 @@
+(load "../shen-libs/modulesys.shen")
+(module.add-path "../shen-libs/")
+
+
+(module.use ["defstruct"])
 (load "brainfuck.shen")
-
-(set *program* (program [+ + + -]))
-(set *bf* (bf-make (value *program*)
-                   (tape-make 3)))
-
-(bf-run (value *bf*))
