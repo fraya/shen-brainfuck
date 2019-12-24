@@ -1,7 +1,7 @@
 (synonyms tape (vector number)
-	  bfcode (symbol * number))
-
-
+          bfcode (symbol * number)
+          bfcodes (list bfcode)
+          optimization (bfcodes --> bfcodes))
 
 (datatype bfvm
 
@@ -10,9 +10,7 @@
   P  : (vector bfcode); 
   T  : tape;
   ==================
-  [Pp Dp P T] : bfvm;
-  
-)
+  [Pp Dp P T] : bfvm; )
   
 (define mk-tape
   { number --> tape }
@@ -173,18 +171,19 @@
   [X | Xs] Result F -> (filter' Xs [X | Result] F) where (F X)
   [X | Xs] Result F -> (filter' Xs Result F))
 
+(define program
+  { string --> (list bfcode) }
+  File -> (optimize [exclude-nop] (file->program File)))
+  
 (define file->program
   { string --> (list bfcode) }
   File -> (map byte->bfcode (read-file-as-bytelist File)))
 
-\* 
 (define optimize
   { (list optimization) --> bfcodes --> bfcodes }
   [] P -> P
   [Optimization | Os] P -> (optimize Os (Optimization P)))
-*\
-\*
+
 (define exclude-nop
   { bfcodes --> bfcodes }
   L -> (filter L (/. X (not (= (fst X) nop)))))
-*\
