@@ -1,83 +1,127 @@
-(synonyms bfcode (symbol * number)
-          bfcodes (list bfcode)
-	  optimization (bfcodes --> bfcodes)
-          program (vector bfcode)
-	  tape (vector number))
+(synonyms tape (vector number)
+	  bfcode (symbol * number))
+
+
 
 (datatype bfvm
-  Pp: number; Dp: number; P: program; T: tape;
-  ============
-  [Pp Dp P T]: bfvm;)
-  
-(define make-tape
-  { number --> tape }
-  Size -> (make-tape' (vector Size) 1 Size))
 
-(define make-tape'
+  Pp : number; 
+  Dp : number; 
+  P  : (vector bfcode); 
+  T  : tape;
+  ==================
+  [Pp Dp P T] : bfvm;
+  
+)
+  
+(define mk-tape
+  { number --> tape }
+  Size -> (mk-tape' (vector Size) 1 Size))
+
+(define mk-tape'
   { tape --> number --> number --> tape }
   T L L -> T
-  T N L -> (make-tape' (vector-> T N 0) (+ N 1) L))
+  T N L -> (mk-tape' (vector-> T N 0) (+ N 1) L))
+  
+(define mk-bfvm
+  { (list bfcode) --> bfvm }
+  P -> [1 1 (list->vector P) (mk-tape 6000)])
 
-(define make-bfvm
-  { program --> bfvm }
-  P -> [1 1 P (make-tape 100)])
-  
-(define datum
+(define <-datum
   { bfvm --> number }
-  [_ Dp _ T] -> (<-vector T Dp))
-  
+  [Pp Dp P T] -> (<-vector T Dp))
+
 (define datum->
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> (do (vector-> T Dp N) [Pp Dp P T]))
+  { number --> bfvm --> bfvm }
+  N [Pp Dp P T] -> [Pp Dp P (vector-> T Dp N)])
 
 (define datum+
-  { bfvm --> number --> bfvm }
-  B N -> (do (datum-> B (+ (datum B) N)) B))
+  { number --> bfvm --> bfvm }
+  N B -> (datum-> (+ (<-datum B) N) B))
 
 (define datum-
-  { bfvm --> number --> bfvm }
-  B N -> (datum+ B (- 0 N)))
+  { number --> bfvm --> bfvm }
+  N B -> (datum+ (- 0 N) B))
 
-(define dp+
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> (error "Tape overflow") where (> (+ N Dp) (limit T))
-  [Pp Dp P T] N -> [Pp (+ N Dp) P T])
+(define <-dp
+  { bfvm --> number }
+  [Pp Dp P T] -> Dp)
 
-(define dp-
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> (error "Tape underflow") where (< (- Dp N) 1)
-  [Pp Dp P T] N -> [Pp (- Dp N) P T])
+(define dp->
+  { number --> bfvm --> bfvm }
+  A [Pp Dp P T] -> [Pp A P T])
+
+(define tape>>
+  { number --> bfvm --> bfvm }
+  N B -> (dp-> (+ (<-dp B) N) B))
+
+(define <<tape
+  { number --> bfvm --> bfvm }
+  N B -> (tape>> (- 0 N) B))
+
+(define <-pp 
+  { bfvm --> number }
+  [Pp Dp P T] -> Pp)
+
+(define pp->
+  { number --> bfvm --> bfvm }
+  A [Pp Dp P T] -> [A Dp P T])
+
+(define program>>
+  { number --> bfvm --> bfvm }
+  N B -> (pp-> (+ N (<-pp B)) B))
   
-(define pp+
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> (error "address overflow") where (> (+ N Pp) (limit P))
-  [Pp Dp P T] N -> [(+ Pp N) Dp P T])
-  
-(define pp-
-  { bfvm --> number --> bfvm }
-  [Pp Dp P T] N -> (error "address underflow") where (< (- Pp N) 1)
-  [Pp Dp P T] N -> [(- Pp N) Dp P T])
+(define <<program
+  { number --> bfvm --> bfvm }
+  N B -> (program>> (- 0 N) B))
 
-(define pp++
+(define program++
   { bfvm --> bfvm }
-  B -> (pp+ B 1))
+  B -> (program>> 1 B))
 
-(define pp--
+(define program--
   { bfvm --> bfvm }
-  B -> (pp+ B (- 0 1)))
-  
+  B -> (<<program 1 B))
+
 (define bfcode
   { bfvm --> bfcode }
   [Pp Dp P T] -> (<-vector P Pp))
 
-(define off?
-  { bfvm --> boolean }
-  [Pp Dp P T] -> (= Pp (limit P)))
-  
-(define bf-run
-  { bfvm --> symbol }
-  B -> (do (output "~%") done) where (off? B)
-  B -> (bf-run (pp++ (exec B))))
+(define b-out
+  { bfvm --> bfvm }
+  B -> (do (output "~A" (n->string (<-datum B))) B))
+
+(define jf
+  { number --> bfvm --> bfvm }
+  _ B -> B where (not (= 0 (<-datum B)))
+  0 B -> (jf' 1 (program++ B))
+  A B -> (program>> A B))
+
+(define jf'
+  { number --> bfvm --> bfvm }
+  0 B           -> B
+  _ [Pp Dp P T] -> (error "Mismatched jump forward") where (= Pp (limit P))
+  L B           -> (jf' (+ L 1) (program++ B)) where (= jf (fst (bfcode B)))
+  L B           -> (jf' (- L 1) (program++ B)) where (= jb (fst (bfcode B)))
+  L B           -> (jf' L (program++ B)))
+
+(define jb
+  { number --> bfvm --> bfvm }
+  _ B -> B where (= 0 (<-datum B))
+  0 B -> (jb' 1 (program-- B))
+  A B -> (<<program A B))
+
+(define jb'
+  { number --> bfvm --> bfvm }
+  0 B           -> B
+  _ [Pp Dp P T] -> (error "Mismatched jump backward") where (= Pp 1)
+  L B           -> (jb' (- L 1) (program-- B)) where (= jf (fst (bfcode B)))
+  L B           -> (jb' (+ L 1) (program-- B)) where (= jb (fst (bfcode B)))
+  L B           -> (jb' L (program-- B)))
+
+(define nop
+  { bfvm --> bfvm }
+  B -> B)
 
 (define exec
   { bfvm --> bfvm }
@@ -85,59 +129,30 @@
 
 (define exec'
   { bfvm --> bfcode --> bfvm }
-  B (@p datum+ N) -> (datum+ B N)
-  B (@p datum- N) -> (datum- B N)
-  B (@p dp+ N)    -> (dp+ B N)
-  B (@p dp- N)    -> (dp- B N)
-  B (@p jf N)     -> (jf B N)
-  B (@p jb N)     -> (jb B N)
+  B (@p datum+ N) -> (datum+ N B)
+  B (@p datum- N) -> (datum- N B)
+  B (@p tape>> N) -> (tape>> N B)
+  B (@p <<tape N) -> (<<tape N B)
+  B (@p jf N)     -> (jf N B)
+  B (@p jb N)     -> (jb N B)
   B (@p b-out _)  -> (b-out B)
-  B (@p nop _)    -> B
-  B _             -> (error "unknown instruction"))
+  B (@p nop _)    -> (nop B))
 
-(define b-out
-  { bfvm --> bfvm }
-  B -> (do (output "~A" (datum B)) B))
-
-(define jf
-  { bfvm --> number --> bfvm }
-  B _           -> B where (= 0 (datum B))
-  B 0           -> (jf' 1 (pp++ B))
-  [Pp Dp P T] A -> [A Dp P T])
-
-(define jf'
-  { number --> bfvm --> bfvm }
-  0 B -> B
-  _ B -> (error "Mismatched jump forward") where (off? B)
-  L B -> (jf' (+ L 1) (pp++ B)) where (= (fst (bfcode B)) jf)
-  L B -> (jf' (- L 1) (pp++ B)) where (= (fst (bfcode B)) jb)
-  L B -> (jf' L (pp++ B)))
-
-(define jb
-  { bfvm --> number --> bfvm }
-  B _           -> B where (not (= 0 (datum B)))
-  B 0           -> (jb' 1 (pp++ B))
-  [Pp Dp P T] A -> [A Dp P T])
-
-(define jb'
-  { number --> bfvm --> bfvm }
-  0 B           -> B
-  _ [Pp Dp P T] -> (error "Mismatched jump backward") where (= Pp 1)
-  L B           -> (jb' (- L 1) (pp-- B)) where (= (fst (bfcode B)) jf)
-  L B           -> (jb' (+ L 1) (pp-- B)) where (= (fst (bfcode B)) jb)
-  L B           -> (jb' L (pp-- B)))
+(define bf-run
+  { bfvm --> symbol }
+  [Pp Dp P T] -> (do (output "~%") done) where (= Pp (limit P))
+  B           -> (bf-run (program++ (exec B))))
   
 (define byte->bfcode
   { number --> bfcode }
   43 -> (@p datum+ 1)
   45 -> (@p datum- 1)
-  60 -> (@p dp- 1)
-  62 -> (@p dp+ 1)
+  60 -> (@p <<tape 1)
+  62 -> (@p tape>> 1)
   46 -> (@p b-out 0)
   91 -> (@p jf 0)
   93 -> (@p jb 0)
   _  -> (@p nop 0))
-
 
 (define list->vector
   { (list A) --> (vector A) }
@@ -158,20 +173,18 @@
   [X | Xs] Result F -> (filter' Xs [X | Result] F) where (F X)
   [X | Xs] Result F -> (filter' Xs Result F))
 
-(define file->bfcode
-  { string --> bfcodes }
+(define file->program
+  { string --> (list bfcode) }
   File -> (map byte->bfcode (read-file-as-bytelist File)))
-  
-(define program
-  { string --> (list optimization) --> (vector bfcode) }
-  File Opts -> (list->vector (optimize Opts (file->bfcode File))))
 
+\* 
 (define optimize
   { (list optimization) --> bfcodes --> bfcodes }
-  []       C -> C
-  [O | Os] C -> (optimize Os (O C)))
-
+  [] P -> P
+  [Optimization | Os] P -> (optimize Os (Optimization P)))
+*\
+\*
 (define exclude-nop
   { bfcodes --> bfcodes }
   L -> (filter L (/. X (not (= (fst X) nop)))))
-
+*\
