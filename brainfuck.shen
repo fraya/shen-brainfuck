@@ -173,7 +173,12 @@
 
 (define program
   { string --> (list bfcode) }
-  File -> (optimize [exclude-nop] (file->program File)))
+  File -> (optimize [exclude-nop
+		     (zip datum+)
+		     (zip datum-)
+		     (zip tape>>)
+		     (zip <<tape)]
+                    (file->program File)))
   
 (define file->program
   { string --> (list bfcode) }
@@ -187,3 +192,13 @@
 (define exclude-nop
   { bfcodes --> bfcodes }
   L -> (filter L (/. X (not (= (fst X) nop)))))
+
+(define zip
+  { symbol --> bfcodes --> bfcodes }
+  Instruction L -> (zip' Instruction L []))
+
+(define zip'
+  { symbol --> bfcodes --> bfcodes --> bfcodes }
+  I [] Acc                       -> (reverse Acc)
+  I [(@p I N) (@p I M) | Xs] Acc -> (zip' I [(@p I (+ N M)) | Xs] Acc)
+  I [X | Xs] Acc                 -> (zip' I Xs [X | Acc])) 
