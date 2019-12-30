@@ -1,6 +1,7 @@
 (synonyms tape (vector number)
           bfcode (token * number)
-          program (vector bfcode)
+	  instruction (bfvm --> bfvm)
+          program (vector instruction)
           optimization ((list bfcode) --> (list bfcode)))
 
 (datatype token
@@ -30,83 +31,40 @@
   { program --> bfvm }
   Program -> [1 1 Program (mk-tape 3000)])
 
-(define <-datum
-  { bfvm --> number }
-  [Pp Dp Program Tape] -> (<-vector Tape Dp))
-
-(define datum->
-  { number --> bfvm --> bfvm }
-  N [Pp Dp Program Tape] -> [Pp Dp Program (vector-> Tape Dp N)])
-
 (define datum+
   { number --> bfvm --> bfvm }
-  N Bf -> (datum-> (+ (<-datum Bf) N) Bf))
-
-(define <-dp
-  { bfvm --> number }
-  [Pp Dp Program Tape] -> Dp)
-
-(define dp->
-  { number --> bfvm --> bfvm }
-  Addr [Pp Dp Program Tape] -> [Pp Addr Program Tape])
+  N [Pp Dp P T] -> [Pp Dp P (vector-> T Dp (+ (<-vector T Dp) N))])
 
 (define tape>>
   { number --> bfvm --> bfvm }
-  N Bf -> (dp-> (+ (<-dp Bf) N) Bf))
+  N [Pp Dp P T] -> [Pp (+ Dp N) P T])
 
-(define <-pp 
-  { bfvm --> number }
-  [Pp Dp Program Tape] -> Pp)
-
-(define pp->
-  { number --> bfvm --> bfvm }
-  Addr [Pp Dp Program Tape] -> [Addr Dp Program Tape])
-
-(define program++
+(define pp++
   { bfvm --> bfvm }
-  Bf -> (pp-> (+ 1 (<-pp Bf)) Bf))
+  [Pp Dp P T] -> [(+ Pp 1) Dp P T])
   
-(define bfcode
-  { bfvm --> bfcode }
-  [Pp Dp Program Tape] -> (<-vector Program Pp))
-
 (define b-out
-  { bfvm --> bfvm }
-  Bf -> (do (output "~A" (n->string (<-datum Bf))) Bf))
+  { number --> bfvm --> bfvm }
+  _ [Pp Dp P T] -> (do (output "~A" (n->string (<-vector T Dp))) [Pp Dp P T]))
 
 (define jmp-f
   { number --> bfvm --> bfvm }
-  _ Bf -> Bf where (not (= 0 (<-datum Bf)))
-  A Bf -> (pp-> A Bf))
+  _ [Pp Dp P T] -> [Pp Dp P T] where (not (= 0 (<-vector T Dp)))
+  A [Pp Dp P T] -> [A Dp P T])
 
 (define jmp-b
   { number --> bfvm --> bfvm }
-  _ Bf -> Bf where (= 0 (<-datum Bf))
-  A Bf -> (pp-> A Bf))
+  _ [Pp Dp P T] -> [Pp Dp P T] where (= 0 (<-vector T Dp))
+  A [Pp Dp P T] -> [A Dp P T])
 
 (define nop
-  { bfvm --> bfvm }
-  Bf -> Bf)
+  { number --> bfvm --> bfvm }
+  _ Bf -> Bf)
 
-(define exec
-  { bfvm --> bfvm }
-  Bf -> (exec' Bf (bfcode Bf)))
-
-(define exec'
-  { bfvm --> bfcode --> bfvm }
-  Bf (@p + N) -> (datum+ N Bf)
-  Bf (@p - N) -> (datum+ (- 0 N) Bf)
-  Bf (@p > N) -> (tape>> N Bf)
-  Bf (@p < N) -> (tape>> (- 0 N) Bf)
-  Bf (@p f N) -> (jmp-f N Bf)
-  Bf (@p b N) -> (jmp-b N Bf)
-  Bf (@p . _) -> (b-out Bf)
-  Bf (@p ? _) -> (nop Bf))
-
-(define bf-run
+(define loop
   { bfvm --> symbol }
-  [Pp Dp Program Tape] -> (do (output "~%") done) where (= Pp (limit Program))
-  Bf -> (bf-run (program++ (exec Bf))))
+  [Pp Dp P T] -> (do (output "~%") done) where (= Pp (limit P))
+  [Pp Dp P T] -> (loop (pp++ ((<-vector P Pp) [Pp Dp P T]))))
   
 (define byte->bfcode
   { number --> bfcode }
@@ -140,32 +98,56 @@
   Pp [X | Xs] R                 -> (optimize1' (+ Pp 1) Xs [X | R])) 
 
 (define optimize2
-  { program --> program }
+  { (vector bfcode) --> (vector bfcode) }
   P -> (optimize2' P 1))
 
 (define optimize2'
-  { program --> number --> program }
+  { (vector bfcode) --> number --> (vector bfcode) }
   P Pp -> P where (= Pp (limit P))
-  P Pp -> (let I (<-vector P Pp)
-               A (match-jf P 1 (+ Pp 1))
+  P Pp -> (let Pp+ (+ Pp 1)
+               A (match-jf P 1 Pp+)
                _ (vector-> P Pp (@p f A))
                _ (vector-> P A  (@p b Pp))
-              (optimize2' P (+ Pp 1))) where (= f (fst (<-vector P Pp)))
-  P Pp  -> (optimize2' P (+ Pp 1)))
+              (optimize2' P Pp+)) where (= f (fst (<-vector P Pp)))
+  P Pp -> (optimize2' P (+ Pp 1)))
 
 (define match-jf
-  { program --> number --> number --> number }
+  { (vector bfcode) --> number --> number --> number }
   P Lv Pp -> (error "Mismatched jump forward") where (= Pp (limit P))
   _ 0  Pp -> (- Pp 1)
   P Lv Pp -> (match-jf P (+ Lv 1) (+ Pp 1)) where (= f (fst (<-vector P Pp)))
   P Lv Pp -> (match-jf P (- Lv 1) (+ Pp 1)) where (= b (fst (<-vector P Pp)))
   P Lv Pp -> (match-jf P Lv (+ Pp 1)))
 
-(define program
+(define bfcode->program
+  { (vector bfcode) --> program }
+  Bfcodes -> (bfcode->program' Bfcodes (vector (limit Bfcodes)) (limit Bfcodes) 1))
+
+(define bfcode->program'
+  { (vector bfcode) --> program --> number --> number --> program }
+  B P Size Size -> P
+  B P Size Pp   -> (do (vector-> P Pp (bfcode->instruction (<-vector B Pp)))
+                       (bfcode->program' B P Size (+ Pp 1))))
+  
+(define bfcode->instruction
+  { bfcode --> (bfvm --> bfvm) }
+  (@p + N) -> (datum+ N)
+  (@p - N) -> (datum+ (- 0 N))
+  (@p > N) -> (tape>> N)
+  (@p < N) -> (tape>> (- 0 N))
+  (@p f N) -> (jmp-f N)
+  (@p b N) -> (jmp-b N)
+  (@p . N) -> (b-out N)
+  (@p ? N) -> (nop N))
+
+(define file->program
   { string --> program }
   File -> (let Bytes (read-file-as-bytelist File)  
                Bfcode (map byte->bfcode Bytes)
                Opt1   (optimize1 Bfcode)
-               P      (list->vector Opt1)
-               (optimize2 P)))
-  
+               Opt2   (optimize2 (list->vector Opt1))
+	       (bfcode->program Opt2)))
+
+(define bf-run
+  { string --> symbol }
+  File -> (loop (mk-bf (file->program File))))
