@@ -1,81 +1,120 @@
 (synonyms tape (vector number)
-          bfcode (token * number)
-	  instruction (bfvm --> bfvm)
-          program (vector instruction)
-          optimization ((list bfcode) --> (list bfcode)))
+          program (vector instruction))
 
-(datatype token
-  if (element? X [+ - > < f b . ?])
+(datatype operator
+
+  if (element? X [+ - > < jmpf jmpb . nop])
   __________
-  X : token; )
+  X : operator; )
 
-(datatype bfvm
+(define optimizable?
+  { operator --> boolean }
+  X -> (element? X [+ - > <]))
+
+(datatype instruction
+  
+  F : operator;
+  N : number;
+  ===========
+  [F N] : instruction; )
+
+\**
+ *
+ * Brainfuck virtual machine definition, where:
+ * 
+ * Pp: Program Pointer
+ * Dp: Data Pointer
+ *  P: Program
+ *  T: Tape
+ *\
+
+(datatype vm
 
   Pp : number; 
   Dp : number; 
   P  : program; 
   T  : tape;
   ===========
-  [Pp Dp P T] : bfvm; ) 
-  
-(define mk-tape
-  { number --> tape }
-  Size -> (mk-tape' Size 1 (vector Size)))
+  [Pp Dp P T] : vm; )
+
+\** Constructors *\
 
 (define mk-tape'
-  { number --> number --> tape --> tape }
-  Size Size Tape -> Tape
-  Size N    Tape -> (mk-tape' Size (+ N 1) (vector-> Tape N 0)))
+  { number --> tape --> tape }
+  0 T -> T
+  N T -> (mk-tape' (- N 1) (vector-> T N 0)))
+
+(define mk-tape
+  { number --> tape }
+  N -> (mk-tape' N (vector N)))
   
-(define mk-bf
-  { program --> bfvm }
-  Program -> [1 1 Program (mk-tape 3000)])
+(define mk-vm
+  { program --> number --> vm }
+  P N -> [1 1 P (mk-tape N)])
 
-(define datum+
-  { number --> bfvm --> bfvm }
-  N [Pp Dp P T] -> [Pp Dp P (vector-> T Dp (+ (<-vector T Dp) N))])
+\* Parse character to instruction *\
 
-(define tape>>
-  { number --> bfvm --> bfvm }
-  N [Pp Dp P T] -> [Pp (+ Dp N) P T])
+(define byte->instruction
+  { number --> instruction }
+  43 -> [+ 1]
+  45 -> [- 1]
+  60 -> [< 1]
+  62 -> [> 1]
+  46 -> [. 0]
+  91 -> [jmpf 0]
+  93 -> [jmpb 0]
+  _  -> [nop 0])
+
+(define jmpf?
+  { instruction --> boolean }
+  [jmpf _] -> true
+  _        -> false)
+
+(define jmpb?
+  { instruction --> boolean }
+  [jmpb _] -> true
+  _        -> false)
+
+\*  Brainfuck's instructions *\
 
 (define pp++
-  { bfvm --> bfvm }
+  { vm --> vm }
   [Pp Dp P T] -> [(+ Pp 1) Dp P T])
   
 (define b-out
-  { number --> bfvm --> bfvm }
-  _ [Pp Dp P T] -> (do (output "~A" (n->string (<-vector T Dp))) [Pp Dp P T]))
+  { number --> vm --> vm }
+  _ [Pp Dp P T] -> (let Char (n->string (<-vector T Dp))
+		     (do (output "~A" Char)
+			 [Pp Dp P T])))
 
-(define jmp-f
-  { number --> bfvm --> bfvm }
+(define jmpf
+  { number --> vm --> vm }
   _ [Pp Dp P T] -> [Pp Dp P T] where (not (= 0 (<-vector T Dp)))
   A [Pp Dp P T] -> [A Dp P T])
 
-(define jmp-b
-  { number --> bfvm --> bfvm }
+(define jmpb
+  { number --> vm --> vm }
   _ [Pp Dp P T] -> [Pp Dp P T] where (= 0 (<-vector T Dp))
   A [Pp Dp P T] -> [A Dp P T])
 
-(define nop
-  { number --> bfvm --> bfvm }
-  _ Bf -> Bf)
+(define execute
+  { vm --> instruction --> vm }
+  [Pp Dp P T] [+ N] -> [Pp Dp P (vector-> T Dp (+ (<-vector T Dp) N))] 
+  [Pp Dp P T] [- N] -> [Pp Dp P (vector-> T Dp (- (<-vector T Dp) N))] 
+  [Pp Dp P T] [> N] -> [Pp (+ Dp N) P T]
+  [Pp Dp P T] [< N] -> [Pp (- Dp N) P T]
+  Vm [jmpf A]       -> (jmpf A Vm)
+  Vm [jmpb A]       -> (jmpb A Vm)
+  Vm [. N]          -> (b-out N Vm)
+  Vm _              -> Vm)
 
 (define loop
-  { bfvm --> symbol }
+  { vm --> symbol }
   [Pp Dp P T] -> (do (output "~%") done) where (= Pp (limit P))
-  [Pp Dp P T] -> (loop (pp++ ((<-vector P Pp) [Pp Dp P T]))))
-  
-(define byte->bfcode
-  { number --> bfcode }
-  43 -> (@p + 1)
-  45 -> (@p - 1)
-  60 -> (@p < 1)
-  62 -> (@p > 1)
-  46 -> (@p . 0)
-  91 -> (@p f 0)
-  93 -> (@p b 0)
-  _  -> (@p ? 0))
+  [Pp Dp P T] -> (loop (pp++ (execute [Pp Dp P T] (<-vector P Pp)))))
+
+
+\** Utilities *\
 
 (define list->vector
   { (list A) --> (vector A) }
@@ -86,68 +125,58 @@
   [] V N -> V
   [X | Xs] V N -> (list->vector' Xs (vector-> V N X) (+ N 1)))
 
-(define optimize1
-  { (list bfcode) --> (list bfcode) }
-  L -> (optimize1' 1 L []))
+(define vector->list
+  { (vector A) --> (list A) }
+  V -> (vector->list' V (limit V) []))
 
-(define optimize1'
-  { number --> (list bfcode) --> (list bfcode) --> (list bfcode) }
-  Pp [] R                       -> (reverse R)
-  Pp [(@p ? 0) | Xs] R          -> (optimize1' (+ Pp 1) Xs R)
-  Pp [(@p X N) (@p X M) | Xs] R -> (optimize1' (+ Pp 1) [(@p X (+ N M)) | Xs] R) where (element? X [+ - > <])
-  Pp [X | Xs] R                 -> (optimize1' (+ Pp 1) Xs [X | R])) 
+(define vector->list'
+  { (vector A) --> number --> (list A) --> (list A) }
+  V 0 L -> L
+  V N L -> (vector->list' V (- N 1) [(<-vector V N) | L]))
+  
+\** Optimizations *\
+
+(define optimize1
+  { (list instruction) --> (list instruction) }
+  P -> (go1' 1 P []))
+
+(define go1'
+  { number --> (list instruction) --> (list instruction) --> (list instruction) }
+  _  []                 Rs -> (reverse Rs)
+  Pp [[nop _] | Xs]     Rs -> (go1' (+ Pp 1) Xs Rs)
+  Pp [[F N] [F M] | Xs] Rs -> (go1' (+ Pp 1) [[F (+ N M)] | Xs] Rs) where (optimizable? F)
+  Pp [X | Xs]           Rs -> (go1' (+ Pp 1) Xs [X | Rs])) 
+
+(define match-jmp
+  { program --> number --> number --> number }
+  P Lv Pp -> (error "Mismatched jump") where (> Pp (limit P)) 
+  _ 0  Pp -> (- Pp 1)
+  P Lv Pp -> (match-jmp P (+ Lv 1) (+ Pp 1)) where (jmpf? (<-vector P Pp))
+  P Lv Pp -> (match-jmp P (- Lv 1) (+ Pp 1)) where (jmpb? (<-vector P Pp))
+  P Lv Pp -> (match-jmp P Lv (+ Pp 1)))
 
 (define optimize2
-  { (vector bfcode) --> (vector bfcode) }
+  { program --> program }
   P -> (optimize2' P 1))
 
 (define optimize2'
-  { (vector bfcode) --> number --> (vector bfcode) }
+  { program --> number --> program }
   P Pp -> P where (= Pp (limit P))
   P Pp -> (let Pp+ (+ Pp 1)
-               A (match-jf P 1 Pp+)
-               _ (vector-> P Pp (@p f A))
-               _ (vector-> P A  (@p b Pp))
-              (optimize2' P Pp+)) where (= f (fst (<-vector P Pp)))
+               A (match-jmp P 1 Pp+)
+               _ (vector-> P Pp [jmpf A])
+               _ (vector-> P A  [jmpb Pp])
+              (optimize2' P Pp+)) where (jmpf? (<-vector P Pp))
   P Pp -> (optimize2' P (+ Pp 1)))
 
-(define match-jf
-  { (vector bfcode) --> number --> number --> number }
-  P Lv Pp -> (error "Mismatched jump forward") where (= Pp (limit P))
-  _ 0  Pp -> (- Pp 1)
-  P Lv Pp -> (match-jf P (+ Lv 1) (+ Pp 1)) where (= f (fst (<-vector P Pp)))
-  P Lv Pp -> (match-jf P (- Lv 1) (+ Pp 1)) where (= b (fst (<-vector P Pp)))
-  P Lv Pp -> (match-jf P Lv (+ Pp 1)))
-
-(define bfcode->program
-  { (vector bfcode) --> program }
-  Bfcodes -> (bfcode->program' Bfcodes (vector (limit Bfcodes)) (limit Bfcodes) 1))
-
-(define bfcode->program'
-  { (vector bfcode) --> program --> number --> number --> program }
-  B P Size Size -> P
-  B P Size Pp   -> (do (vector-> P Pp (bfcode->instruction (<-vector B Pp)))
-                       (bfcode->program' B P Size (+ Pp 1))))
-  
-(define bfcode->instruction
-  { bfcode --> (bfvm --> bfvm) }
-  (@p + N) -> (datum+ N)
-  (@p - N) -> (datum+ (- 0 N))
-  (@p > N) -> (tape>> N)
-  (@p < N) -> (tape>> (- 0 N))
-  (@p f N) -> (jmp-f N)
-  (@p b N) -> (jmp-b N)
-  (@p . N) -> (b-out N)
-  (@p ? N) -> (nop N))
 
 (define file->program
   { string --> program }
-  File -> (let Bytes (read-file-as-bytelist File)  
-               Bfcode (map byte->bfcode Bytes)
-               Opt1   (optimize1 Bfcode)
-               Opt2   (optimize2 (list->vector Opt1))
-	       (bfcode->program Opt2)))
+  Filename -> (let B  (read-file-as-bytelist Filename)  
+                   P  (map byte->instruction B)
+                   O1 (optimize1 P)
+                   (optimize2 (list->vector O1))))
 
 (define bf-run
   { string --> symbol }
-  File -> (loop (mk-bf (file->program File))))
+  Filename -> (loop (mk-vm (file->program Filename) 3000)))
