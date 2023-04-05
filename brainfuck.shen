@@ -137,16 +137,25 @@
   
 \** Optimizations *\
 
-(define optimize1
+(define remove-comments
   { instructions --> instructions }
-  P -> (go1' 1 P []))
+  P -> (remove-comments' P []))
 
-(define go1'
-  { number --> instructions --> instructions --> instructions }
-  _  []                 Rs -> (reverse Rs)
-  Pp [[nop _] | Xs]     Rs -> (go1' (+ Pp 1) Xs Rs)
-  Pp [[F N] [F M] | Xs] Rs -> (go1' (+ Pp 1) [[F (+ N M)] | Xs] Rs) where (groupable? F)
-  Pp [X | Xs]           Rs -> (go1' (+ Pp 1) Xs [X | Rs])) 
+(define remove-comments'
+  { instructions --> instructions --> instructions }
+  []              Rs -> (reverse Rs)
+  [[nop _] | Xs]  Rs -> (remove-comments' Xs Rs)
+  [X | Xs]        Rs -> (remove-comments' Xs [X | Rs]))
+
+(define group-instructions
+  { instructions --> instructions }
+  P -> (group-instructions' P []))
+
+(define group-instructions'
+  { instructions --> instructions --> instructions }
+  []                 Rs -> (reverse Rs)
+  [[F N] [F M] | Xs] Rs -> (group-instructions' [[F (+ N M)] | Xs] Rs) where (groupable? F)
+  [X | Xs]           Rs -> (group-instructions' Xs [X|Rs]))
 
 (define match-jmp
   { program --> number --> number --> number }
@@ -174,9 +183,8 @@
 (define file->program
   { string --> program }
   Filename -> (let B  (read-file-as-bytelist Filename)  
-                   P  (map byte->instruction B)
-                   O1 (optimize1 P)
-                   (optimize2 (list->vector O1))))
+                   P  (group-instructions (remove-comments (map byte->instruction B)))
+                   (optimize2 (list->vector P))))
 
 (define bf-run
   { string --> symbol }
