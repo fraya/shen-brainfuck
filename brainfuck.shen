@@ -4,7 +4,7 @@
 
 (datatype operator
 
-  if (element? X [+ - > < jmpf jmpb . nop])
+  if (element? X [+ - > < jmpf jmpb . nop z])
   __________
   X : operator; )
 
@@ -104,6 +104,7 @@
   [Pp Dp P T] [- N] -> [Pp Dp P (vector-> T Dp (- (<-vector T Dp) N))] 
   [Pp Dp P T] [> N] -> [Pp (+ Dp N) P T]
   [Pp Dp P T] [< N] -> [Pp (- Dp N) P T]
+  [Pp Dp P T] [z _] -> [Pp Dp P (vector-> T Dp 0)]
   Vm [jmpf A]       -> (jmpf A Vm)
   Vm [jmpb A]       -> (jmpb A Vm)
   Vm [. N]          -> (b-out N Vm)
@@ -157,6 +158,16 @@
   [[F N] [F M] | Xs] Rs -> (group-instructions' [[F (+ N M)] | Xs] Rs) where (groupable? F)
   [X | Xs]           Rs -> (group-instructions' Xs [X|Rs]))
 
+(define reset-to-zero
+  { instructions --> instructions }
+  P -> (reset-to-zero' P []))
+
+(define reset-to-zero'
+  { instructions --> instructions --> instructions }
+  []                             Rs -> (reverse Rs)
+  [[jmpf _] [- 1] [jmpb _] | Xs] Rs -> (reset-to-zero' Xs [[z 1] | Rs])
+  [X | Xs]                       Rs -> (reset-to-zero' Xs [X | Rs]))
+
 (define match-jmp
   { program --> number --> number --> number }
   P Lv Pp -> (error "Mismatched jump") where (> Pp (limit P)) 
@@ -183,7 +194,9 @@
 (define file->program
   { string --> program }
   Filename -> (let B  (read-file-as-bytelist Filename)  
-                   P  (group-instructions (remove-comments (map byte->instruction B)))
+                   P  (group-instructions 
+                        (reset-to-zero 
+                          (remove-comments (map byte->instruction B))))
                    (optimize2 (list->vector P))))
 
 (define bf-run
