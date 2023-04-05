@@ -1,5 +1,6 @@
 (synonyms tape (vector number)
-          program (vector instruction))
+          program (vector instruction)
+          instructions (list instruction))
 
 (datatype operator
 
@@ -137,11 +138,11 @@
 \** Optimizations *\
 
 (define optimize1
-  { (list instruction) --> (list instruction) }
+  { instructions --> instructions }
   P -> (go1' 1 P []))
 
 (define go1'
-  { number --> (list instruction) --> (list instruction) --> (list instruction) }
+  { number --> instructions --> instructions --> instructions }
   _  []                 Rs -> (reverse Rs)
   Pp [[nop _] | Xs]     Rs -> (go1' (+ Pp 1) Xs Rs)
   Pp [[F N] [F M] | Xs] Rs -> (go1' (+ Pp 1) [[F (+ N M)] | Xs] Rs) where (optimizable? F)
