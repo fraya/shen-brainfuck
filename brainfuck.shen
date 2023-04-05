@@ -8,7 +8,7 @@
   __________
   X : operator; )
 
-(define optimizable?
+(define groupable?
   { operator --> boolean }
   X -> (element? X [+ - > <]))
 
@@ -145,7 +145,7 @@
   { number --> instructions --> instructions --> instructions }
   _  []                 Rs -> (reverse Rs)
   Pp [[nop _] | Xs]     Rs -> (go1' (+ Pp 1) Xs Rs)
-  Pp [[F N] [F M] | Xs] Rs -> (go1' (+ Pp 1) [[F (+ N M)] | Xs] Rs) where (optimizable? F)
+  Pp [[F N] [F M] | Xs] Rs -> (go1' (+ Pp 1) [[F (+ N M)] | Xs] Rs) where (groupable? F)
   Pp [X | Xs]           Rs -> (go1' (+ Pp 1) Xs [X | Rs])) 
 
 (define match-jmp
