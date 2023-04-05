@@ -176,19 +176,19 @@
   P Lv Pp -> (match-jmp P (- Lv 1) (+ Pp 1)) where (jmpb? (<-vector P Pp))
   P Lv Pp -> (match-jmp P Lv (+ Pp 1)))
 
-(define optimize2
+(define precalculate-jumps
   { program --> program }
-  P -> (optimize2' P 1))
+  P -> (precalculate-jumps' P 1))
 
-(define optimize2'
+(define precalculate-jumps'
   { program --> number --> program }
   P Pp -> P where (= Pp (limit P))
   P Pp -> (let Pp+ (+ Pp 1)
                A (match-jmp P 1 Pp+)
                _ (vector-> P Pp [jmpf A])
                _ (vector-> P A  [jmpb Pp])
-              (optimize2' P Pp+)) where (jmpf? (<-vector P Pp))
-  P Pp -> (optimize2' P (+ Pp 1)))
+              (precalculate-jumps' P Pp+)) where (jmpf? (<-vector P Pp))
+  P Pp -> (precalculate-jumps' P (+ Pp 1)))
 
 
 (define file->program
@@ -197,7 +197,7 @@
                    P  (group-instructions 
                         (reset-to-zero 
                           (remove-comments (map byte->instruction B))))
-                   (optimize2 (list->vector P))))
+                   (precalculate-jumps (list->vector P))))
 
 (define bf-run
   { string --> symbol }
